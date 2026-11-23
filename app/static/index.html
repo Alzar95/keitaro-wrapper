@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keitaro Wrapper</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 0 16px 32px;
+      background: #f6f7f9;
+      color: #222;
+    }
+    h1 { font-size: 22px; margin: 20px 0 12px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tab {
+      padding: 8px 16px;
+      border: 1px solid #d0d0d5;
+      background: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #000;
+    }
+    .tab.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+    .tab-panel { background: #fff; border: 1px solid #e3e3e8; border-radius: 8px; padding: 16px; }
+    form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+    .field label { font-size: 13px; color: #555; }
+    input[type="text"], input[type="number"] {
+      padding: 8px;
+      border: 1px solid #c8c8ce;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    select {
+      padding: 8px 32px 8px 8px;
+      border: 1px solid #c8c8ce;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #fff;
+      cursor: pointer;
+      min-width: 280px;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%23666' d='M6 8L0 0h12z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+
+    select:focus {
+      outline: 2px solid #1f6feb;
+      outline-offset: 1px;
+      border-color: #1f6feb;
+    }
+
+    select:disabled {
+      background-color: #f0f0f3;
+      color: #999;
+      cursor: not-allowed;
+    }
+    button {
+      padding: 8px 14px;
+      margin-bottom: 8px;
+      border: none;
+      border-radius: 6px;
+      background: #1f6feb;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:disabled { opacity: 0.6; cursor: default; }
+    .result { display: none; margin-top: 12px; padding: 10px 12px; border-radius: 6px; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+.result.success { display: block; background: #e6f4ea; color: #146c2e; border: 1px solid #b7e4c7; }
+.result.error { display: block; background: #fdecea; color: #b3261e; border: 1px solid #f5c6c2; }
+.result:empty { display: none !important; }
+    #offers-list { margin-top: 8px; }
+    .offer-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid #e3e3e8;
+      border-radius: 6px;
+      margin-top: 6px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Keitaro Wrapper</h1>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="create">Создать кампанию</button>
+    <button class="tab" data-tab="editor">Редактор кампаний</button>
+  </div>
+
+  <div id="tab-create" class="tab-panel">
+    <form id="create-form">
+      <div class="field">
+        <label for="create-name">Название</label>
+        <input type="text" id="create-name" placeholder="My Campaign" required>
+      </div>
+      <div class="field">
+        <label for="create-geo">GEO</label>
+        <input type="text" id="create-geo" placeholder="RU" maxlength="2" required>
+      </div>
+      <div class="field">
+        <label for="create-offer-id">Offer ID</label>
+        <input type="number" id="create-offer-id" placeholder="1" required>
+      </div>
+      <button type="submit">Создать</button>
+    </form>
+    <div id="create-result" class="result"></div>
+  </div>
+
+  <div id="tab-editor" class="tab-panel" style="display:none;">
+    <div class="field">
+      <label for="campaign-select">Кампания</label>
+      <select id="campaign-select"></select>
+    </div>
+    <div class="field">
+      <label for="offer-id-input">Offer ID</label>
+      <input type="number" id="offer-id-input" placeholder="1">
+    </div>
+    <button id="add-offer-btn">Добавить оффер</button>
+    <div id="offer-error" class="result"></div>
+    <div id="offers-list"></div>
+  </div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const panels = {
+    create: document.getElementById('tab-create'),
+    editor: document.getElementById('tab-editor'),
+  };
+
+  function clearOfferError() {
+  offerError.className = 'result';
+  offerError.textContent = '';
+}
+
+  function activateTab(name) {
+    tabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+    Object.keys(panels).forEach((key) => {
+      panels[key].style.display = key === name ? 'block' : 'none';
+    });
+  }
+
+  tabs.forEach((t) => {
+    t.addEventListener('click', () => activateTab(t.dataset.tab));
+  });
+
+  const createForm = document.getElementById('create-form');
+  const createResult = document.getElementById('create-result');
+
+  createForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    createResult.className = 'result';
+    createResult.textContent = '';
+    const name = document.getElementById('create-name').value.trim();
+    const geo = document.getElementById('create-geo').value.trim();
+    const offer_id = Number(document.getElementById('create-offer-id').value);
+    if (!name || !geo || !offer_id) {
+      createResult.className = 'result error';
+      createResult.textContent = 'Заполните name, geo и offer_id.';
+      return;
+    }
+    try {
+      const data = await apiFetch('/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, geo, offer_id }),
+      });
+      await loadCampaigns();
+      activateTab('editor');
+      campaignSelect.value = String(data.id);
+      await loadOffers(data.id);
+      const streams = (data.streams || []).map((s) => `kind=${s.kind}, offer_id=${s.offer_id}, stream_id=${s.id}`);
+      createResult.className = 'result success';
+      createResult.textContent = `Кампания создана: id=${data.id}, keitaro_id=${data.keitaro_id}. Streams: ${streams.join('; ') || 'нет'}`;
+    } catch (err) {
+      createResult.className = 'result error';
+      createResult.textContent = `Ошибка: ${err.message}`;
+    }
+  });
+
+  const campaignSelect = document.getElementById('campaign-select');
+  const offersList = document.getElementById('offers-list');
+  const offerError = document.getElementById('offer-error');
+  const addOfferBtn = document.getElementById('add-offer-btn');
+  const offerIdInput = document.getElementById('offer-id-input');
+
+  async function apiFetch(url, options) {
+    const res = await fetch(url, options);
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok) {
+      throw new Error((data && data.detail) ? data.detail : `Ошибка HTTP ${res.status}`);
+    }
+    return data;
+  }
+
+  async function loadOffers(campaignId) {
+    clearOfferError();
+    try {
+      const campaign = await apiFetch(`/campaigns/${campaignId}`);
+      const offers = (campaign.streams || []).filter((s) => s.kind === 'offer');
+      if (!offers.length) {
+        offersList.textContent = 'Офферов нет';
+        return;
+      }
+      offersList.innerHTML = '';
+      offers.forEach((s) => {
+        const item = document.createElement('div');
+        item.className = 'offer-item';
+        const text = document.createElement('span');
+        text.textContent = `offer_id = ${s.offer_id} (stream_id ${s.id})`;
+        const btn = document.createElement('button');
+        btn.textContent = 'Удалить';
+        btn.addEventListener('click', async () => {
+          try {
+            await apiFetch(`/campaigns/${campaign.id}/offers/${s.id}`, { method: 'DELETE' });
+            await loadOffers(campaign.id);
+          } catch (err) {
+            offerError.className = 'result error';
+            offerError.textContent = `Ошибка: ${err.message}`;
+          }
+        });
+        item.appendChild(text);
+        item.appendChild(btn);
+        offersList.appendChild(item);
+      });
+    } catch (err) {
+      offerError.className = 'result error';
+      offerError.textContent = `Ошибка: ${err.message}`;
+    }
+  }
+
+  campaignSelect.addEventListener('change', async () => {
+    const id = Number(campaignSelect.value);
+    if (!id) { offersList.textContent = 'Выберите кампанию'; return; }
+    await loadOffers(id);
+  });
+
+  addOfferBtn.addEventListener('click', async () => {
+    const campaignId = Number(campaignSelect.value);
+    const offerId = Number(offerIdInput.value);
+    if (!campaignId) { offerError.textContent = 'Выберите кампанию из списка'; return; }
+    if (!offerId) { offerError.textContent = 'Введите Offer ID'; return; }
+    try {
+      await apiFetch(`/campaigns/${campaignId}/offers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ offer_id: offerId }),
+      });
+      offerIdInput.value = '';
+      await loadOffers(campaignId);
+    } catch (err) {
+      offerError.textContent = `Ошибка: ${err.message}`;
+    }
+  });
+
+  async function loadCampaigns() {
+  const select = document.getElementById('campaign-select');
+  try {
+    const campaigns = await apiFetch('/campaigns');
+    select.innerHTML = '';
+    if (!campaigns || !campaigns.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '— кампаний нет —';
+      select.appendChild(opt);
+      select.disabled = true;
+      addOfferBtn.disabled = true;
+      offersList.textContent = 'Кампаний пока нет. Создайте первую во вкладке «Создать кампанию».';
+      return;
+    }
+    select.disabled = false;
+    addOfferBtn.disabled = false;
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '— выберите кампанию —';
+    select.appendChild(placeholder);
+    campaigns.forEach((c) => {
+      const opt = document.createElement('option');
+      opt.value = String(c.id);
+      opt.textContent = `#${c.id} — ${c.name} (${c.geo})`;
+      select.appendChild(opt);
+    });
+    offersList.textContent = 'Выберите кампанию из списка выше';
+  } catch (err) {
+    offersList.textContent = `Не удалось загрузить кампании: ${err.message}`;
+  }
+}
+
+  document.addEventListener('DOMContentLoaded', loadCampaigns);
+</script>
+</body>
+</html>
