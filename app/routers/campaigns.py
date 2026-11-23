@@ -160,6 +160,12 @@ async def list_campaigns(db: AsyncSession = Depends(get_db)) -> list[CampaignRea
     return [CampaignRead.model_validate(c, from_attributes=True) for c in campaigns]
 
 
+@router.get("/offers")
+async def list_offers(keitaro: KeitaroClient = Depends(get_keitaro_client)) -> list[dict]:
+    """List offers."""
+    return await keitaro.list_offers()
+
+
 @router.get("/{campaign_id}", response_model=CampaignRead)
 async def get_campaign(campaign_id: int, db: AsyncSession = Depends(get_db)) -> CampaignRead:
     campaign = await _get_campaign_or_404(db, campaign_id)

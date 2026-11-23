@@ -167,6 +167,22 @@ class KeitaroClient:
             return None
         await self._request("DELETE", f"/campaigns/{campaign_id}")
 
+    async def list_offers(self) -> list:
+        """List offers."""
+        if KeitaroSettings().use_keitaro_mock:
+            print("[MOCK] list_offers called")
+            return [
+                {"id": 1, "name": "Mock Offer A"},
+                {"id": 2, "name": "Mock Offer B"},
+                {"id": 3, "name": "Mock Offer C"},
+            ]
+        data = await self._request("GET", "/offers")
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("offers") or []
+        return []
+
 
 _keitaro_client: KeitaroClient | None = None
 
